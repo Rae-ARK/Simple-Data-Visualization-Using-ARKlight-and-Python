@@ -1,5 +1,14 @@
 from arklight import *
-from data import BUNDLE_SIZE, SO2025, FEATURES, SOURCES, PYPI_FINDING
+from data import (
+    BUNDLE_SIZE,
+    SO2025,
+    FEATURES,
+    SOURCES,
+    PYPI_FINDING,
+    GETTING_STARTED_STEPS,
+    CHANGELOG_MILESTONES,
+    FAQ,
+)
 
 # --------------------------------------------------------------------
 # Compatibility guard: this site uses alpha-branch-only ARKlight
@@ -110,6 +119,23 @@ site.style("bento-hero", {
     "grid-column": "span 2",
 })
 
+# --------------------------------------------------------------------
+# Phase 2, Stage 7: new pages (Getting Started / Changelog / FAQ).
+# Status badges for the /changelog table -- reusing var(--ark-*) so
+# they follow the Stage 6 theme automatically, same discipline as the
+# hero/kpi-value/nav-brand classes above.
+site.style("status-done", {
+    "color": "#3f6212",
+    "font-weight": "600",
+})
+site.style("status-planned", {
+    "color": "var(--ark-muted)",
+})
+site.style("status-in-progress", {
+    "color": "var(--ark-accent)",
+    "font-weight": "600",
+})
+
 ROUTES = [
     ("/", "Home"),
     ("/bundle-size", "Bundle Size"),
@@ -117,6 +143,9 @@ ROUTES = [
     ("/architecture", "Architecture"),
     ("/methodology", "Methodology"),
     ("/verdict", "Verdict"),
+    ("/getting-started", "Getting Started"),
+    ("/changelog", "Changelog"),
+    ("/faq", "FAQ"),
 ]
 
 
@@ -505,4 +534,121 @@ def verdict():
         ),
         title="The Honest Verdict",
         description="Who should actually use ARKlight, and who shouldn't -- a direct recommendation.",
+    )
+
+
+# --------------------------------------------------------- Getting Started
+
+@site.page("/getting-started")
+def getting_started():
+    steps = []
+    for title, command, note in GETTING_STARTED_STEPS:
+        steps.append(
+            Container(
+                Heading(title, level=3),
+                Pre(Code(command)),
+                Text(note, class_name="muted"),
+                class_name="card",
+            )
+        )
+    return page_shell(
+        Heading("Getting Started"),
+        Text(
+            "The exact commands from ARKlight's own README -- nothing "
+            "paraphrased. This site itself was built by running these "
+            "same five steps against the alpha branch.",
+        ),
+        Container(*steps, class_name="stack"),
+        Heading("A minimal site.py", level=2),
+        Pre(Code(
+            "from arklight import *\n\n"
+            "site = Site()\n\n"
+            "@site.page(\"/\")\n"
+            "def home():\n"
+            "    return Page(\n"
+            "        Heading(\"ARKlight\"),\n"
+            "        Text(\"Build websites with Python.\"),\n"
+            "        Button(\"Get Started\"),\n"
+            "    )"
+        )),
+        Text(
+            "The same shape every page on this site follows -- see the "
+            "Methodology page for how this site's own numbers were "
+            "measured, or the Changelog for what's shipped so far.",
+            class_name="muted",
+        ),
+        title="Getting Started",
+        description="Install ARKlight's alpha branch and build your first site -- the exact commands from ARKlight's own README.",
+    )
+
+
+# --------------------------------------------------------------- Changelog
+
+@site.page("/changelog")
+def changelog():
+    status_class = {
+        "DONE": "status-done",
+        "PLANNED": "status-planned",
+        "IN PROGRESS": "status-in-progress",
+    }
+    rows = [
+        TableRow(
+            TableCell(Code(version)),
+            TableCell(what),
+            TableCell(status, class_name=status_class.get(status, "")),
+        )
+        for version, what, status in CHANGELOG_MILESTONES
+    ]
+    done_count = sum(1 for *_, status in CHANGELOG_MILESTONES if status == "DONE")
+    return page_shell(
+        Heading("Changelog"),
+        Text(
+            f"ARKlight's own milestone roadmap ({done_count} of "
+            f"{len(CHANGELOG_MILESTONES)} shipped as of this build), "
+            "surfaced here as a real Table instead of linking off to "
+            "GitHub. Source: ARKlight's docs/ARCHITECTURE.md.",
+        ),
+        Table(
+            TableHead(
+                TableRow(
+                    TableHeaderCell("Version"),
+                    TableHeaderCell("What"),
+                    TableHeaderCell("Status"),
+                )
+            ),
+            TableBody(*rows),
+        ),
+        Text(
+            "This site itself targets v0.043 on the alpha branch -- see "
+            "the \"Built against ARKlight's alpha branch\" note on this "
+            "project's own README for what that gets you over main.",
+            class_name="muted",
+        ),
+        title="Changelog",
+        description="ARKlight's full milestone history, shipped and planned.",
+    )
+
+
+# -------------------------------------------------------------------- FAQ
+
+@site.page("/faq")
+def faq():
+    entries = [
+        Details(
+            Summary(question),
+            Text(answer),
+        )
+        for question, answer in FAQ
+    ]
+    return page_shell(
+        Heading("FAQ"),
+        Text(
+            "Nothing new invented for this page -- every answer below "
+            "is repackaged from this project's own README or existing "
+            "copy elsewhere on this site, as a zero-JS Details/Summary "
+            "accordion.",
+        ),
+        Container(*entries, class_name="stack"),
+        title="FAQ",
+        description="Answers to the honest edge cases found while building this site -- no live charts, no @media yet, no PyPI package.",
     )
