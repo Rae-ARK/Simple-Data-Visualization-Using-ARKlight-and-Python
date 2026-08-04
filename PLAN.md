@@ -265,9 +265,17 @@ in Section 6:
 | Stage | What happens | Output |
 |---|---|---|
 | **5 (this entry)** | Research + plan, capability ceiling re-verified against `alpha` HEAD | This `PLAN.md` append |
-| **6** | Re-theme pass: `--ark-*` override (accent/background), bento-grid spans on Home + Compare via `style={"grid-column": ...}`, no new pages yet -- proves the visual language compiles clean before touching content | `stage6.ark` |
+| **6** | Re-theme pass: `--ark-*` override (accent/background), bento-grid spans on Home + Compare via `style={"grid-column": ...}`, no new pages yet -- proves the visual language compiles clean before touching content | `stage6.ark` -- **DONE** |
 | **7** | New pages: `/getting-started`, `/changelog`, `/faq`, nav updated to 9 routes, no interactivity yet | `stage7.ark` |
 | **8** | `/playground` -- per-card `State`/`Action.toggle_bool`/`Bind.when` demo, full `arklight build --verbose` + `arklight pack`, final visual QA against both the existing mobile layout (must not regress) and desktop (the actual gap this phase closes) | `arklight-vs-frontend-v2.ark` (final deliverable) |
+
+### Stage 6 notes (what was actually built, checked directly against the running compiler)
+
+- **Palette**: `--ark-accent: #b8480f` (warm rust/terracotta) / `--ark-accent-hover: #8f3709` / `--ark-border: #e8dccb`, plus a warm off-white `background: #faf6f0` -- picked to be distinct from both ARKlight's own default indigo (`#4f46e5`) and every framework's brand color already used in the adoption pie chart (React cyan, Vue green, Angular red, Svelte orange-red), so the re-theme reads as deliberate rather than blending in.
+- **Where the override actually lives**: confirmed by reading `arklight/backend/html/render.py::_render_page` that `Page(...)`'s own `style=`/`class_name=` props are never applied to `<body>` -- only `title`/`description`/`favicon`/`og_*` are read off the root node. So the override sits one level in, on a new `Container` wrapping `Header`+`Main`+`Footer` inside `page_shell()`. `--ark-bg` specifically is consumed by the `body` rule itself (one level *above* that wrapper), so the wrapper also paints a literal `background` and uses negative margins matching body's own padding (`-2.5rem -1.5rem -4rem`, then re-applies the same padding inside) to actually repaint the page rather than set an inert, unread custom property.
+- **`site.style("hero"/"kpi-value"/"nav-brand", ...)`** now read `var(--ark-accent)` instead of a hardcoded `#7c3aed`, so they follow the wrapper's override automatically instead of needing a second, separate re-theme.
+- **Bento-grid**: a reusable `bento-hero` class (`grid-column: span 2`) applied to one card per `.grid` section -- the Verdict card on Home (the actual answer most visitors want), and a new ARKlight output-model card on `/architecture` (interpreting Section 10's "Compare" as the architecture/feature-comparison page, since no route is literally named `/compare`). `.switcher` sections were deliberately left alone -- it's flexbox, not CSS Grid, so `grid-column` has no effect there.
+- **Verified, not assumed**: rebuilt with `arklight build --verbose` (clean), round-tripped `stage6.ark` through `arklight pack` → `arklight unpack` and diffed against `ARK/` (byte-identical), and rendered `index.html`/`architecture.html` to PNG to confirm the new palette and `grid-column: span` actually apply in the generated CSS (`grep` on `ARK/styles.css` confirms the `.bento-hero { grid-column: span 2; }` rule and the inline theme `style=` on the wrapper `div`).
 
 Each stage's bundle stays independently openable/inspectable, same
 discipline as Section 4.
