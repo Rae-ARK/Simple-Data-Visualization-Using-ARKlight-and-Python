@@ -72,18 +72,198 @@ arklight-vs-frontend.ark   Final build output -- a sealed ARK Bundle.
 ## Building it yourself
 
 ```bash
-# 1. Generate the chart PNGs (matplotlib, outside ARKlight)
-python generate_assets.py
-
-# 2. Compile the site
-arklight build site.py -o ARK --verbose
-
-# 3. (Optional) pack it back into a single sealed .ark file
-arklight pack ARK -o arklight-vs-frontend.ark
+./build.sh
 ```
 
-Step 1 needs `matplotlib` (`pip install matplotlib`); steps 2-3 need
-`alpha`-branch ARKlight installed, per the warning above.
+Runs, in order: chart generation (`generate_assets.py`), `arklight
+build site.py -o ARK`, then an *optional* `arklight pack` into
+`arklight-vs-frontend.ark`. `site.py` itself checks the installed
+ARKlight at import time (see "Compatibility guard" below) and exits
+with a clear message rather than a raw traceback if it's not the
+`alpha` branch. If you'd rather run the three steps by hand:
+
+```bash
+python generate_assets.py                        # needs matplotlib
+arklight build site.py -o ARK --verbose           # needs alpha ARKlight
+arklight pack ARK -o arklight-vs-frontend.ark     # optional, see below
+```
+
+### Compatibility guard (what happens if you `pip install arklight`)
+
+There is **no published `arklight` package on PyPI** as of this
+writing -- `pip install arklight` will either fail outright or, if
+some other project ever claims that name, install something entirely
+unrelated. The only real install path is cloning ARKlight's own repo
+(`alpha` or `main`) and running `pip install -e .` inside it.
+
+`site.py` opens with a small compatibility check (`_check_arklight_compatibility()`)
+that inspects whatever ARKlight *is* installed and fails fast with an
+explicit message if it's missing `Site.style(...)` or the `Page(...)`
+head-metadata props this site depends on -- both `alpha`-only, per the
+table above. Verified directly, in two clean virtualenvs:
+
+- **`alpha` branch installed** -- `site.py` imports cleanly, no output
+  from the guard.
+- **`main` branch installed** (`v0.42.0`) -- `site.py` exits immediately
+  with: `"This site (site.py) requires ARKlight's 'alpha' branch..."`
+  and the exact `pip install -e .` fix, instead of the
+  `AttributeError: 'Site' object has no attribute 'style'` you'd
+  otherwise get from `site.style("hero", ...)` on line 6.
+
+One more thing found while testing this: **`main`'s own `pip install
+-e .` refuses to build at all** until you accept its license terms --
+either `pip install -e . --config-settings=yes-i-agree-to-arklight-license=1`
+or `ARKLIGHT_ACCEPT_LICENSE=1 pip install -e .` (read `LICENSE` in the
+ARKlight repo first). This is a real, reproducible gate in `main`'s
+build backend, not something inferred -- confirmed by actually running
+the install and reading the message it prints. The `alpha` branch used
+here has no such gate. `data.py`'s `PYPI_FINDING` entry records a
+related, *unverified* claim (a license-acceptance gate specifically in
+a PyPI-distributed wheel) that this session could not confirm one way
+or the other, since no such wheel exists to test -- noted here so the
+two don't get conflated.
+
+### `.ark` bundle failures -- ARK/ is always the fallback
+
+`arklight pack` is the last, optional step in `build.sh`, and its
+failure is **not fatal**. If sealing breaks for any reason -- a future
+ARKlight release changing the archive format, a filesystem issue, an
+edge case `arklight pack` doesn't handle yet -- `build.sh` prints a
+warning and exits `0` anyway, because the actual deployable output is
+`ARK/` (real files: `index.html`, `styles.css`, `arklight.js`,
+`assets/*.png`), not `arklight-vs-frontend.ark`. The `.ark` file is a
+single-file convenience artifact for local/offline viewing; it was
+never meant to be what a static host serves. This was tested directly
+by forcing a pack failure (making the output path unwritable) and
+confirming `ARK/index.html` still built and `build.sh` still exited
+cleanly.
+
+## Deploying to Cloudflare Workers
+
+This repo includes `wrangler.jsonc`, already pointed at `./ARK` as
+static assets -- no Worker script needed, this is a pure static site.
+
+```bash
+# 1. Build first (produces ./ARK)
+./build.sh
+
+# 2. Install Wrangler if you don't have it, then deploy
+npx wrangler deploy
+```
+
+That uploads everything in `ARK/` to Cloudflare's edge and prints a
+`*.workers.dev` preview URL. `wrangler.jsonc`:
+
+```jsonc
+{
+  "name": "arklight-vs-frontend",
+  "compatibility_date": "2026-08-04",
+  "assets": {
+    "directory": "./ARK",
+    "html_handling": "none",       // ARKlight's Link() already emits
+                                    // real relative "page.html" hrefs
+                                    // -- "none" serves them at their
+                                    // literal path with no rewrite/
+                                    // redirect layer.
+    "not_found_handling": "404-page"
+  }
+}
+```
+
+## Automated deploys (`.github/workflows/deploy.yml`)
+
+Pushing to `main` clones ARKlight's `alpha` branch fresh, installs it,
+runs `build.sh`, and deploys via `cloudflare/wrangler-action@v3`. Two
+repo secrets are required (GitHub -> Settings -> Secrets and variables
+-> Actions):
+
+- `CLOUDFLARE_API_TOKEN` -- Cloudflare dashboard -> My Profile -> API
+  Tokens -> "Edit Cloudflare Workers" template.
+- `CLOUDFLARE_ACCOUNT_ID` -- Cloudflare dashboard sidebar, Workers &
+  Pages overview.
+
+The workflow deliberately does **not** try `pip install arklight` --
+there's no such package on PyPI (verified directly), so that command
+can only ever fail. It clones `alpha` and `pip install -e`'s it
+instead, the same as the manual instructions above. Tested end-to-end
+in a clean, disposable venv + fresh clone before being committed here
+(clone alpha -> install -> install matplotlib -> `bash build.sh`),
+not just written and assumed to work.
+
+### A note on an alternative build script
+
+An earlier draft of this pipeline (a `build.py` using
+`hasattr(arklight, "backend")`-style introspection to detect `alpha`
+vs. stable, plus a Cloudflare Worker script forcing
+`Content-Disposition: attachment` on the `.ark` download) was tested
+against the real package and reverted. Two concrete problems, checked
+directly rather than assumed:
+
+- The introspection returned `False` on *both* branches --
+  `hasattr(arklight, "backend")` is `False` even right after `import
+  arklight` on a real `alpha` install, since Python doesn't bind a
+  submodule onto a package unless something already imported it.
+- Forcing `Content-Disposition: attachment` on the bundle download
+  reproduces the original Android bug on purpose -- it forces a
+  download to a file type the OS still has no app registered for. The
+  fix that's actually in this repo does the opposite: `Content-Type:
+  text/html` + `Content-Disposition: inline`, so the browser renders
+  it instead of downloading it (see "The mobile 'no app to open
+  this' problem" above).
+
+Only `ARK/` is deployed -- the sealed `arklight-vs-frontend.ark` bundle
+gets included *inside* `ARK/` too (see next section), rather than
+uploaded separately, so it's served over real HTTP like everything
+else on the site.
+
+### The mobile "no app to open this" problem, and how it's actually fixed
+
+Distributing the raw `.ark` file for someone to download and
+double-click relies on their OS recognizing the `.ark` extension and
+handing it to a browser -- desktop OSes are often permissive enough
+that this works, but on Android there's no registered app for an
+unrecognized extension, so the download just sits there with no
+"Open with Browser" option. That's a real, reported failure mode, not
+a hypothetical one.
+
+The fix isn't a workaround on the phone -- it's not relying on file
+association at all. `build.sh` now:
+
+1. Copies the packed bundle into `ARK/arklight-vs-frontend.ark`, so
+   it's served over HTTP once deployed, not handed to the OS as a
+   downloaded file.
+2. Writes `ARK/_headers` (Cloudflare's [custom-headers convention](https://developers.cloudflare.com/workers/static-assets/headers/))
+   forcing `Content-Type: text/html` (and `Content-Disposition:
+   inline`) specifically on that path:
+
+   ```
+   /arklight-vs-frontend.ark
+     Content-Type: text/html
+     Content-Disposition: inline
+   ```
+
+   This works *because* the `.ark` polyglot's front matter is real,
+   valid HTML from byte zero, by design (see ARKlight's own README,
+   "ARK Bundle"). Wrangler would otherwise guess a generic
+   `application/octet-stream` for an unrecognized extension, which is
+   exactly what triggers the download-with-no-viewer behavior on
+   Android. Forcing `text/html` makes any browser -- desktop or
+   mobile -- render it directly in-tab, the moment it's requested over
+   HTTP, no OS file-type association involved at all.
+3. Links to it from the site's footer ("Download offline bundle
+   (.ark)") -- verified in `ARK/index.html`:
+   `<a href="arklight-vs-frontend.ark" class="source-note">`.
+
+**Graceful degradation, tested directly:** if `arklight pack` fails
+(see the section above), `build.sh` skips steps 1-2 entirely --
+`ARK/_headers` and the copied bundle simply aren't written. The
+footer's link is still there (it's baked into every page by
+`site.py`), but it now resolves through Cloudflare's own
+`not_found_handling: 404-page` into a normal, in-browser 404 -- not a
+phone-native "no app can open this" dead end. Confirmed by forcing a
+real pack failure and inspecting `ARK/`: no `_headers`, no bundle, but
+`ARK/index.html` (and the rest of the site) still built and deployed
+cleanly.
 
 ## The constraint that shapes the whole site
 
