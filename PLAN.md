@@ -129,3 +129,149 @@ the polyglot format) at every step, not just at the end.
 ---
 
 ## Waiting on your signal to start Stage 2.
+
+---
+---
+
+# Phase 2: Production-grade visual redesign + expanded site
+
+Status: **Plan only, appended 2026-08-04. Not started.** Re-verified
+directly against ARKlight's `alpha` branch HEAD before writing this --
+still **v0.043** as of this writing. `v0.044` (computed state, per-item
+list rendering, conditional show/hide, two-way binding) has **not**
+landed; nothing below depends on it landing.
+
+---
+
+## 5. Why this phase exists
+
+Stages 1-4 above shipped and work -- the deployed site's mobile layout
+holds up, `.stack`/`.switcher` do what they're supposed to. Desktop
+looks noticeably plainer than the framework marketing sites it's
+comparing itself against: the default indigo accent, a uniform
+single-column card layout, and zero real interactivity anywhere,
+despite the site's own copy praising ARKlight's `State`/`Bind`/`Action`
+system. This phase closes that gap using only what's actually
+shippable in `alpha` today, not what's roadmapped for `v0.044`/`v0.048`.
+
+---
+
+## 6. Re-verified capability ceiling (checked directly, not assumed from an earlier read)
+
+| Capability | Status | How verified |
+|---|---|---|
+| `State`/`Bind`/`Action.set/increment/decrement/reset/append/remove/toggle_bool` | Available | `arklight/api.py` |
+| `Bind.when(state, class_name)` / `bind_class=` (reactive class toggle) | Available -- Stage 2 of "reactive-core vdom staging," DONE | `arklight/api.py::_bind_when`; `CHANGELOG.md` Unreleased section |
+| Computed/derived state, watch effects, two-way input binding, per-item list rendering, conditional show/hide (`v0.044`) | **Not implemented** -- still "Next up" | `PROGRESS.md`, `CHANGELOG.md` |
+| `@media` queries / structured `<head>`/`<header>` (`v0.048`) | **Not implemented** -- queued behind `v0.044` | `docs/ARCHITECTURE.md` milestone table |
+| `on_click=` firing more than one `Action` per click | **Not supported** -- takes a single `ActionRef` or a single behavior string, never a list | `arklight/ir/validate.py` (`_validate_action`), read directly |
+| CSS pseudo-classes (`:hover`, `:focus`) via `Site.style()` | **Not possible** -- class names are validated against `^[a-zA-Z_]\w*$` (letters/digits/underscore/hyphen only); a name like `cta:hover` is rejected before reaching the stylesheet | `arklight/api.py::Site.style`, `_CSS_CLASS_NAME_RE` |
+| Per-node `style={...}` property allow-list | **None -- fully open.** `_style_dict_to_css` in `arklight/backend/html/render.py` passes every `{prop: value}` pair straight through as inline CSS, zero validation | Read directly, not assumed |
+| `--ark-bg`/`--ark-text`/`--ark-muted`/`--ark-accent`/`--ark-accent-hover`/`--ark-border`/`--ark-max-width` custom properties | Available, inherited, overridable per-instance via `style=` on any ancestor node | `arklight/backend/css/render.py` `:root` block |
+
+The two rows that actually unlock this phase: **`style={}` has no
+property allow-list**, so real bento-grid spans, gradients, and
+shadows are possible today with zero ARKlight changes; and the
+**`--ark-*` custom properties are a legitimate, already-supported
+re-theme hook**, so a full palette swap needs one `style=` override
+near the tree root, not a new framework feature. Everything below fits
+inside these two facts plus the existing `State`/`Bind`/`Action`/
+`Bind.when` system.
+
+---
+
+## 7. Design direction (checked against current production trends, not personal preference)
+
+Sources: several SaaS/dev-tool landing-page trend roundups (SaaSFrame,
+Figma's resource library, Lounge Lizard, Kontra Agency, Recursion
+Agency), all published within the last several months.
+
+- Blue-dominant "default tech" palettes read as generic and
+  interchangeable in current coverage -- several sources independently
+  note that when everyone defaults to blue, blue stops signaling
+  anything. ARKlight's own default (`--ark-accent: #4f46e5`) is itself
+  an indigo. Fix: one deliberate, non-blue accent, applied through the
+  `--ark-*` override above.
+- Off-white/warm-neutral backgrounds over stark `#ffffff` are a
+  recurring recommendation -- reduces glare, lets the accent color and
+  content carry contrast instead of the background doing it.
+- "Bento grid" modular layouts (asymmetric card sizes inside a grid)
+  are named repeatedly as one of the more durable 2026 layout
+  patterns for SaaS/product pages -- achievable here via `.grid` +
+  explicit `style={"grid-column": "span 2"}` overrides on one or two
+  "hero" cards per section.
+- The specific, repeated advice is high-contrast *restrained* accent
+  use -- one bold color against a neutral background, not saturated
+  color everywhere.
+- Most current motion/"micro-interaction" guidance assumes hover- or
+  scroll-driven animation, which this project structurally can't do
+  (no `:hover`, no `@media`, no arbitrary JS -- see Section 6). The
+  honest substitute is **real click-driven interactivity via
+  `State`/`Action`/`Bind.when`**, which this project already has and
+  hasn't used yet -- see Section 9.
+
+---
+
+## 8. New pages (site structure expansion)
+
+Production dev-tool/SaaS sites converge on a recognizable page set
+beyond the marketing homepage: docs/getting-started, changelog, FAQ,
+and (where applicable) an interactive product surface. Adapted to what
+this project actually has -- no pricing tier, no user testimonials, no
+blog -- rather than inventing pages ARKlight doesn't need:
+
+| Route | Page | Content source (no invented copy) |
+|---|---|---|
+| `/getting-started` | Quickstart | ARKlight's own README install/CLI snippets via `Pre`/`Code` -- same commands already documented upstream, no new claims |
+| `/changelog` | Changelog | ARKlight's own `CHANGELOG.md` milestone history, rendered as a real `Table` -- structured data that already exists, surfaced on-site instead of linking off to GitHub |
+| `/faq` | FAQ | Zero-JS `Details`/`Summary` accordion; questions pulled from this file's own "Notes from building this" section and existing per-page copy -- nothing new invented, existing honesty repackaged as Q&A |
+| `/playground` | Interactive demo | Real `State`/`Action`/`Bind`/`Bind.when` widget -- see Section 9 |
+
+`nav()` gets updated to the resulting 10-route site; `.switcher`/
+`.cluster` already handle a longer nav list without a layout rewrite.
+
+---
+
+## 9. `/playground`: genuine `State`-driven interactivity (not simulated)
+
+Kept honest against the `on_click`-is-single-action constraint found
+in Section 6:
+
+- **Not building:** a mutually-exclusive tab switcher ("click React,
+  others un-highlight"). That needs either a shared state `Bind.when`
+  can compare *by value* (equality, not just truthiness) or multiple
+  actions per click -- neither exists in `alpha` yet. A natural
+  `v0.044` follow-up, not something to fake with a workaround now.
+- **Building instead:** independent per-card expand/collapse. Each
+  framework card gets its own `State("show_detail_<framework>",
+  False)`, a button with
+  `on_click=Action.toggle_bool("show_detail_<framework>")`, and
+  `bind_class=Bind.when("show_detail_<framework>", "is-open")` on a
+  detail `Container`, styled via a new
+  `site.style("is-open", {...})` class (a `max-height`/`opacity`
+  transition works here too, since `transition` is just another
+  property `style={}` passes through untouched). Multiple independent
+  toggles, each verified against what `Bind.when`/`Action.toggle_bool`
+  actually do today -- no multi-action click, no cross-card
+  coordination claimed.
+- This demonstrates the site's own existing claim about ARKlight's
+  `State`/`Bind`/`Action` system with something a visitor can click,
+  instead of only reading about it in prose on `/architecture`.
+
+---
+
+## 10. Build stages (mirrors Section 4's format)
+
+| Stage | What happens | Output |
+|---|---|---|
+| **5 (this entry)** | Research + plan, capability ceiling re-verified against `alpha` HEAD | This `PLAN.md` append |
+| **6** | Re-theme pass: `--ark-*` override (accent/background), bento-grid spans on Home + Compare via `style={"grid-column": ...}`, no new pages yet -- proves the visual language compiles clean before touching content | `stage6.ark` |
+| **7** | New pages: `/getting-started`, `/changelog`, `/faq`, nav updated to 9 routes, no interactivity yet | `stage7.ark` |
+| **8** | `/playground` -- per-card `State`/`Action.toggle_bool`/`Bind.when` demo, full `arklight build --verbose` + `arklight pack`, final visual QA against both the existing mobile layout (must not regress) and desktop (the actual gap this phase closes) | `arklight-vs-frontend-v2.ark` (final deliverable) |
+
+Each stage's bundle stays independently openable/inspectable, same
+discipline as Section 4.
+
+---
+
+## Waiting on your signal to start Stage 6.
