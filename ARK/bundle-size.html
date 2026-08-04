@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bundle Size &amp; Performance</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Gzipped JavaScript payload comparison: React, Vue, Svelte, Angular, and ARKlight.">
+  <link rel="icon" href="assets/favicon.png">
+  <meta property="og:title" content="Bundle Size &amp; Performance">
+  <meta property="og:description" content="Gzipped JavaScript payload comparison: React, Vue, Svelte, Angular, and ARKlight.">
+  <meta property="og:image" content="assets/bundle-size-bar.png">
+</head>
+<body>
+<div style="--ark-accent: #b8480f; --ark-accent-hover: #8f3709; --ark-border: #e8dccb; background: #faf6f0; margin: -2.5rem -1.5rem -4rem; padding: 2.5rem 1.5rem 4rem"><header class="cluster"><nav class="nav"><a href="index.html">Home</a><a href="bundle-size.html">Bundle Size</a><a href="adoption.html">Adoption</a><a href="architecture.html">Architecture</a><a href="methodology.html">Methodology</a><a href="verdict.html">Verdict</a><a href="getting-started.html">Getting Started</a><a href="changelog.html">Changelog</a><a href="faq.html">FAQ</a><a href="playground.html">Playground</a></nav></header><main class="page"><h1>Bundle Size &amp; Performance</h1><p>Every number below is gzipped JavaScript for a minimal app, before your own application code. Ranges reflect real disagreement across sources, not false precision.</p><div class="stack"><div class="stack"><p>ARKlight (static page)</p><meter value="0.5" min="0" max="90">ARKlight (static page)</meter></div><div class="stack"><p>ARKlight (with State/Bind/Action)</p><meter value="5.98" min="0" max="90">ARKlight (with State/Bind/Action)</meter></div><div class="stack"><p>Svelte 5</p><meter value="3.3" min="0" max="90">Svelte 5</meter></div><div class="stack"><p>Vue 3/4</p><meter value="25.5" min="0" max="90">Vue 3/4</meter></div><div class="stack"><p>React 19 + ReactDOM</p><meter value="45.0" min="0" max="90">React 19 + ReactDOM</meter></div><div class="stack"><p>Angular (core)</p><meter value="65.0" min="0" max="90">Angular (core)</meter></div></div><h2>Full table</h2><table><thead><tr><th><p>Tool</p></th><th><p>Gzipped JS</p></th><th><p>Source</p></th></tr></thead><tbody><tr><td><p>ARKlight (static page)</p></td><td><p>0.5 KB</p></td><td class="source-note"><p>Measured this session -- no State() declared</p></td></tr><tr><td><p>ARKlight (with State/Bind/Action)</p></td><td><p>5.98 KB</p></td><td class="source-note"><p>Measured this session -- vendored vdom core included</p></td></tr><tr><td><p>Svelte 5</p></td><td><p>1.6-5.0 KB</p></td><td class="source-note"><p>State of JS 2025 / 2026 benchmark roundups</p></td></tr><tr><td><p>Vue 3/4</p></td><td><p>16.0-35.0 KB</p></td><td class="source-note"><p>Vue perf docs / 2026 comparisons</p></td></tr><tr><td><p>React 19 + ReactDOM</p></td><td><p>42.0-48.0 KB</p></td><td class="source-note"><p>js-framework-benchmark / 2026 sources</p></td></tr><tr><td><p>Angular (core)</p></td><td><p>50.0-80.0 KB</p></td><td class="source-note"><p>2026 Angular performance roundups</p></td></tr></tbody></table><img src="assets/bundle-size-bar.png" alt="Bar chart: gzipped JavaScript for ARKlight, Svelte, Vue, React, and Angular" style="max-width: 100%; height: auto" /></main><footer><p class="muted">ARKlight vs. Traditional Frontend Frameworks -- a comparison site built in ARKlight, about ARKlight.</p><a href="arklight-vs-frontend.ark" class="source-note">Download offline bundle (.ark)</a></footer></div>
+<script src="arklight.js" defer></script>
+</body>
+</html>

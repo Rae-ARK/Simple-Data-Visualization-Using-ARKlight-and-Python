@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Getting Started</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Install ARKlight&#x27;s alpha branch and build your first site -- the exact commands from ARKlight&#x27;s own README.">
+  <link rel="icon" href="assets/favicon.png">
+  <meta property="og:title" content="Getting Started">
+  <meta property="og:description" content="Install ARKlight&#x27;s alpha branch and build your first site -- the exact commands from ARKlight&#x27;s own README.">
+  <meta property="og:image" content="assets/bundle-size-bar.png">
+</head>
+<body>
+<div style="--ark-accent: #b8480f; --ark-accent-hover: #8f3709; --ark-border: #e8dccb; background: #faf6f0; margin: -2.5rem -1.5rem -4rem; padding: 2.5rem 1.5rem 4rem"><header class="cluster"><nav class="nav"><a href="index.html">Home</a><a href="bundle-size.html">Bundle Size</a><a href="adoption.html">Adoption</a><a href="architecture.html">Architecture</a><a href="methodology.html">Methodology</a><a href="verdict.html">Verdict</a><a href="getting-started.html">Getting Started</a><a href="changelog.html">Changelog</a><a href="faq.html">FAQ</a><a href="playground.html">Playground</a></nav></header><main class="page"><h1>Getting Started</h1><p>The exact commands from ARKlight&#x27;s own README -- nothing paraphrased. This site itself was built by running these same five steps against the alpha branch.</p><div class="stack"><div class="card"><h3>1. Install (alpha branch -- see the compatibility note below)</h3><pre><code>git clone --branch alpha https://github.com/Rae-ARK/ARKlight.git
+cd ARKlight
+pip install -e .</code></pre><p class="muted">Installs the `arklight` package and the `arklight` CLI command.</p></div><div class="card"><h3>2. Build a site</h3><pre><code>arklight build site.py -o ARK --no-open --verbose</code></pre><p class="muted">`site.py` must define `site = Site()` and at least one `@site.page(&quot;/route&quot;)`-decorated function. `--verbose` prints a line as each compiler stage starts.</p></div><div class="card"><h3>3. Pack it into a single file</h3><pre><code>arklight pack ARK -o mysite.ark</code></pre><p class="muted">Sealed by default -- opaque to generic archive tools, but still opens directly in a browser (see this site&#x27;s own &quot;Download offline bundle&quot; link in the footer).</p></div><div class="card"><h3>4. Unpack it back</h3><pre><code>arklight unpack mysite.ark -o restored</code></pre><p class="muted">Auto-detects sealed vs. plain bundles.</p></div><div class="card"><h3>5. Look up a component&#x27;s schema</h3><pre><code>arklight search Picture</code></pre><p class="muted">Prints required props, whether it allows children, and whether it&#x27;s a Bind(...)-able target. Typo-tolerant -- `arklight search pictur` suggests `Picture, PictureSource`.</p></div></div><h2>A minimal site.py</h2><pre><code>from arklight import *
+
+site = Site()
+
+@site.page(&quot;/&quot;)
+def home():
+    return Page(
+        Heading(&quot;ARKlight&quot;),
+        Text(&quot;Build websites with Python.&quot;),
+        Button(&quot;Get Started&quot;),
+    )</code></pre><p class="muted">The same shape every page on this site follows -- see the Methodology page for how this site&#x27;s own numbers were measured, or the Changelog for what&#x27;s shipped so far.</p></main><footer><p class="muted">ARKlight vs. Traditional Frontend Frameworks -- a comparison site built in ARKlight, about ARKlight.</p><a href="arklight-vs-frontend.ark" class="source-note">Download offline bundle (.ark)</a></footer></div>
+<script src="arklight.js" defer></script>
+</body>
+</html>
