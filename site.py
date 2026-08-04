@@ -54,15 +54,42 @@ _check_arklight_compatibility()
 
 site = Site()
 
+# --------------------------------------------------------------------
+# Phase 2, Stage 6: re-theme pass.
+#
+# ARKlight's default --ark-accent (#4f46e5) is an indigo -- squarely in
+# the "blue-dominant default tech palette" that current landing-page
+# trend coverage flags as generic (see PLAN.md Section 7). Swapping it
+# is a legitimate, already-supported hook: --ark-* custom properties
+# cascade to every element that already reads them (links, buttons,
+# focus rings, blockquote borders, ...), so one override near the tree
+# root re-themes the whole site with zero changes to ARKlight itself.
+#
+# Picked a warm rust/terracotta instead -- distinct from every
+# framework's own brand color in the adoption pie chart (React cyan,
+# Vue green, Angular red, Svelte orange-red) so it doesn't visually
+# blend into "just another framework color", and distinct from
+# ARKlight's own default indigo so the re-theme is actually visible.
+THEME = {
+    "accent": "#b8480f",       # warm rust/terracotta, not blue/indigo
+    "accent_hover": "#8f3709",
+    "bg": "#faf6f0",           # warm off-white, not stark #ffffff
+    "border": "#e8dccb",       # warm-neutral border to match
+}
+
+# The custom site.style() classes below now read var(--ark-accent)
+# instead of a hardcoded hex, so they automatically follow whatever
+# --ark-accent is in scope -- including the THEME override applied in
+# page_shell() -- rather than needing their own separate re-theme.
 site.style("hero", {
     "padding": "2.5rem 0",
-    "border-bottom": "2px solid #7c3aed",
+    "border-bottom": "2px solid var(--ark-accent)",
     "margin-bottom": "1.5rem",
 })
 site.style("kpi-value", {
     "font-size": "2rem",
     "font-weight": "700",
-    "color": "#7c3aed",
+    "color": "var(--ark-accent)",
 })
 site.style("source-note", {
     "font-size": "0.85rem",
@@ -70,8 +97,17 @@ site.style("source-note", {
 })
 site.style("nav-brand", {
     "font-weight": "700",
-    "color": "#7c3aed",
+    "color": "var(--ark-accent)",
     "letter-spacing": "-0.02em",
+})
+
+# Bento-grid "hero" card -- a .grid child that spans two tracks instead
+# of one, the mechanism PLAN.md Section 7/10 calls for (a `.grid` +
+# explicit `style={"grid-column": "span 2"}` override on one or two
+# cards per section). Kept as a named class rather than an inline style
+# so both bento sections (Home, Architecture) share one definition.
+site.style("bento-hero", {
+    "grid-column": "span 2",
 })
 
 ROUTES = [
@@ -92,16 +128,48 @@ def nav():
 
 
 def page_shell(*children, title, description, og_image=None):
+    # Page(...) itself only ever becomes <body>'s *children* -- style=/
+    # class_name= on Page has nowhere to attach (see ARKlight's
+    # _render_page, which never reads props off the root node besides
+    # title/description/favicon/og_*). So the re-theme override goes on
+    # a real rendered wrapper one level in: a Container around
+    # Header+Main+Footer. CSS custom properties inherit to every
+    # descendant from there, which is everything --ark-accent/
+    # --ark-accent-hover/--ark-border actually get read by (buttons,
+    # links, focus rings, .card borders, the hero rule above, ...).
+    #
+    # --ark-bg specifically is consumed by the `body` rule itself, one
+    # level *above* this wrapper, so overriding the custom property
+    # alone wouldn't repaint anything -- body already resolved its own
+    # background from the un-overridden :root value before this div
+    # exists. Fixed the same way the design notes describe for a "full
+    # palette swap": negative margins matching body's own padding
+    # (2.5rem 1.5rem 4rem, see arklight/backend/css/render.py) pull the
+    # wrapper out to body's edges, then equal padding re-establishes
+    # the original spacing *inside* a div that paints its own
+    # literal `background`, giving a real repaint rather than an inert
+    # unread custom property.
+    theme_style = {
+        "--ark-accent": THEME["accent"],
+        "--ark-accent-hover": THEME["accent_hover"],
+        "--ark-border": THEME["border"],
+        "background": THEME["bg"],
+        "margin": "-2.5rem -1.5rem -4rem",
+        "padding": "2.5rem 1.5rem 4rem",
+    }
     return Page(
-        Header(nav(), class_name="cluster"),
-        Main(*children, class_name="page"),
-        Footer(
-            Text("ARKlight vs. Traditional Frontend Frameworks -- a comparison site built in ARKlight, about ARKlight.", class_name="muted"),
-            Link(
-                "Download offline bundle (.ark)",
-                href="arklight-vs-frontend.ark",
-                class_name="source-note",
+        Container(
+            Header(nav(), class_name="cluster"),
+            Main(*children, class_name="page"),
+            Footer(
+                Text("ARKlight vs. Traditional Frontend Frameworks -- a comparison site built in ARKlight, about ARKlight.", class_name="muted"),
+                Link(
+                    "Download offline bundle (.ark)",
+                    href="arklight-vs-frontend.ark",
+                    class_name="source-note",
+                ),
             ),
+            style=theme_style,
         ),
         title=title,
         description=description,
@@ -179,12 +247,19 @@ def home():
         Heading("At a glance", level=2),
         kpis,
         Heading("Where to go from here", level=2),
+        # Bento grid: five cards in an auto-fit .grid, one "hero" card
+        # (the verdict -- the actual answer most visitors want) spans
+        # two tracks via the bento-hero class defined above. `.grid`'s
+        # own auto-fit/minmax sizing means this degrades safely on a
+        # narrow viewport (a 1-column grid just clamps the span to what
+        # exists) with no @media query, consistent with ARKlight's
+        # intrinsic-only responsive model.
         Container(
             Link("Bundle Size & Performance", href="/bundle-size", class_name="card"),
             Link("Market Share & Developer Sentiment", href="/adoption", class_name="card"),
             Link("How Each Tool Actually Works", href="/architecture", class_name="card"),
             Link("Methodology & Sources", href="/methodology", class_name="card"),
-            Link("The Honest Verdict", href="/verdict", class_name="card"),
+            Link("The Honest Verdict -- who should (and shouldn't) use ARKlight", href="/verdict", class_name="card bento-hero"),
             class_name="grid",
         ),
         title="ARKlight vs. Traditional Frontend Frameworks",
@@ -284,6 +359,38 @@ def adoption():
 
 # --------------------------------------------------------- Architecture
 
+def output_model_cards():
+    # Bento grid: one card per tool's output model, with ARKlight's own
+    # card as the "hero" (it's the one genuinely different answer among
+    # five, not just a smaller/larger number like the others) spanning
+    # two tracks -- same bento-hero mechanism as the Home page grid.
+    cards = [
+        ("React", "Runtime + virtual DOM diffing", False),
+        ("Vue", "Runtime + reactive proxies", False),
+        ("Svelte", "Compiles away -- vanilla JS, no runtime", False),
+        ("Angular", "Runtime + zone.js/signals", False),
+        (
+            "ARKlight",
+            "Compiles to static HTML at build time. JS is optional, "
+            "closed-vocabulary, and only shipped if a page actually "
+            "declares State(...) -- nothing runs in the browser unless "
+            "the page asked for it.",
+            True,
+        ),
+    ]
+    return Container(
+        *[
+            Container(
+                Heading(name, level=3),
+                Text(desc, class_name="muted"),
+                class_name=("card bento-hero" if hero else "card"),
+            )
+            for name, desc, hero in cards
+        ],
+        class_name="grid",
+    )
+
+
 @site.page("/architecture")
 def architecture():
     return page_shell(
@@ -293,6 +400,9 @@ def architecture():
             "keep the page alive with it. ARKlight compiles once, at "
             "build time, and the browser gets plain files.",
         ),
+        Heading("Output model, at a glance", level=2),
+        output_model_cards(),
+        Heading("Full comparison", level=2),
         feature_table(),
         Heading("ARKlight's own pipeline", level=2),
         Text(
