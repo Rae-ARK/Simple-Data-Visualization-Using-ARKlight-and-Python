@@ -160,15 +160,59 @@ That uploads everything in `ARK/` to Cloudflare's edge and prints a
   "compatibility_date": "2026-08-04",
   "assets": {
     "directory": "./ARK",
-    "html_handling": "none",       // ARKlight's Link() already emits
-                                    // real relative "page.html" hrefs
-                                    // -- "none" serves them at their
-                                    // literal path with no rewrite/
-                                    // redirect layer.
+    // ARKlight's Link() already emits real relative "page.html"
+    // hrefs at build time. "none" was tried here to serve them at
+    // their literal path with zero rewrite/redirect layer -- but
+    // "none" also disables Cloudflare's "/" -> "/index.html"
+    // mapping entirely, which 404s the site's own root URL. Back to
+    // Cloudflare's default, "auto-trailing-slash": internal *.html
+    // links still work (one extra 307 redirect to the extensionless
+    // URL), and "/" resolves correctly. Confirmed by deploying with
+    // "none" first and hitting a live 404 on the root path before
+    // switching this back.
+    "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   }
 }
 ```
+
+### Deploying via the Cloudflare dashboard (git-connected, no local Wrangler needed)
+
+An alternative to the CLI/`deploy.yml` paths below: Cloudflare's dashboard
+can connect directly to this GitHub repo and rebuild/redeploy on every
+push, with no Actions workflow or local `wrangler` install required.
+
+1. Cloudflare dashboard -> **Workers & Pages** -> **Ship something new** ->
+   **Continue with GitHub** -> select this repo.
+2. **Build command**:
+   ```
+   git clone --branch alpha https://github.com/Rae-ARK/ARKlight.git /tmp/ARKlight && pip install -e /tmp/ARKlight && pip install matplotlib && bash build.sh
+   ```
+   (Cloudflare's Workers Builds image preinstalls Python/pip, so this
+   runs with no extra setup -- verified directly, see the build log
+   excerpt below.)
+3. **Deploy command**: `npx wrangler deploy` (default -- matches
+   `wrangler.jsonc` above).
+4. **Root directory**: leave as the repo root (`wrangler.jsonc` lives
+   there).
+5. No environment variables/secrets needed for this path -- the
+   dashboard's own GitHub connection handles auth, unlike the
+   `deploy.yml` path below which needs the two repo secrets.
+6. Confirm **Settings -> Builds -> Production branch** matches the
+   branch you actually push to (`main`). Every push to that branch
+   then auto-rebuilds and redeploys with no further action -- to force
+   a rebuild of the current latest commit without a new push, use
+   **Deployments -> Retry deployment** (or **Create deployment** to
+   pick a specific branch/commit).
+
+Verified end-to-end against this exact repo: build completed in ~30s
+(ARKlight `alpha` clone + install, matplotlib install, chart
+generation, `arklight build`, optional `arklight pack`), then
+`npx wrangler deploy` uploaded 12 files and printed a live
+`*.workers.dev` URL. First deploy 404'd on `/` specifically because of
+the `html_handling: "none"` issue documented above -- fixed by editing
+`wrangler.jsonc` on GitHub directly and letting the push auto-redeploy,
+no rebuild trigger needed.
 
 ## Automated deploys (`.github/workflows/deploy.yml`)
 
