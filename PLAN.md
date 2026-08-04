@@ -266,8 +266,16 @@ in Section 6:
 |---|---|---|
 | **5 (this entry)** | Research + plan, capability ceiling re-verified against `alpha` HEAD | This `PLAN.md` append |
 | **6** | Re-theme pass: `--ark-*` override (accent/background), bento-grid spans on Home + Compare via `style={"grid-column": ...}`, no new pages yet -- proves the visual language compiles clean before touching content | `stage6.ark` -- **DONE** |
-| **7** | New pages: `/getting-started`, `/changelog`, `/faq`, nav updated to 9 routes, no interactivity yet | `stage7.ark` |
+| **7** | New pages: `/getting-started`, `/changelog`, `/faq`, nav updated to 9 routes, no interactivity yet | `stage7.ark` -- **DONE** |
 | **8** | `/playground` -- per-card `State`/`Action.toggle_bool`/`Bind.when` demo, full `arklight build --verbose` + `arklight pack`, final visual QA against both the existing mobile layout (must not regress) and desktop (the actual gap this phase closes) | `arklight-vs-frontend-v2.ark` (final deliverable) |
+
+### Stage 7 notes (what was actually built)
+
+- **`/getting-started`**: the five CLI steps reproduced verbatim from ARKlight's own README (`git clone --branch alpha ...` through `arklight search Picture`), each in a `Pre(Code(...))` block plus the exact minimal `site.py` example from that same README -- nothing paraphrased, since these are literal commands a visitor would run.
+- **`/changelog`**: the milestone table from `docs/ARCHITECTURE.md`, reproduced as a real `Table` (`CHANGELOG_MILESTONES` in `data.py`) rather than a link to GitHub, with `DONE`/`PLANNED`/`IN PROGRESS` status cells colored via three new `site.style()` classes that read `var(--ark-*)`, so they inherit the Stage 6 theme automatically.
+- **`/faq`**: six questions as a zero-JS `Details`/`Summary` accordion (`FAQ` in `data.py`), each answer traceable to something already verified elsewhere in this project -- the no-charting-library non-goal (Section 1), the `Site.style()` class-name regex and `on_click` single-action limit (Section 6's re-verified capability table), the nonexistent PyPI package (README "Compatibility guard"), and the `data.py` import-scoping bug (README "Notes from building this"). No new claims invented for this page.
+- **Nav**: `ROUTES` now has 9 entries; `.cluster`'s existing `flex-wrap` handles the longer list with no layout change needed.
+- **Verified, not assumed**: clean `arklight build --verbose` (14 files, up from 11), round-tripped `stage7.ark` through `pack`/`unpack` (byte-identical diff against `ARK/`), rendered all three new pages plus a 380px-wide mobile check on `/getting-started` to confirm `Pre`/`Code` blocks and the accordion render correctly and the nav still wraps safely with 3 more items.
 
 ### Stage 6 notes (what was actually built, checked directly against the running compiler)
 
