@@ -19,7 +19,7 @@
     // click goes straight to /bundle-size.html instead of bouncing
     // through a 307 first (which "auto-trailing-slash", Cloudflare's
     // default, would add).
-    "html_handling": "none",
+    "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   }
   // No "main" entry -- this is pure static hosting, no Worker script.
